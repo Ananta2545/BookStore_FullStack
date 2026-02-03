@@ -1,0 +1,55 @@
+services:
+
+  postgres:
+    container_name: bookstore-postgresql-db-container
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: bookstoreadmin
+      POSTGRES_PASSWORD: bookstoreadmin
+      POSTGRES_DB: BookStore_DB
+    ports:
+      - "5432:5432"
+    volumes:
+      - bookstore_postgres:/var/lib/postgresql/data
+    networks:
+      - bookstore-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bookstoreadmin -d BookStore_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+  
+  bookstore-springboot-backend:
+    build: ./BookStore_Backend
+    image: bookstore-backend-image
+    container_name: bookstore-springboot-backend-container
+    ports:
+      - "8080:8080"
+    environment:
+      POSTGRES_URL: jdbc:postgresql://postgres:5432/BookStore_DB
+      POSTGRES_USER: bookstoreadmin
+      POSTGRES_PASSWORD: bookstoreadmin
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-sk_test_placeholder}
+    networks:
+      - bookstore-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+  
+  bookstore-react-frontend:
+    build: ./BookStore_Frontend
+    image: bookstore-frontend-image
+    container_name: bookstore-react-frontend-container
+    ports:
+      - "5173:5173"
+    networks:
+      - bookstore-network
+    depends_on:
+      - bookstore-springboot-backend
+
+volumes:
+  bookstore_postgres:
+
+networks:
+  bookstore-network:
+    driver: bridge
